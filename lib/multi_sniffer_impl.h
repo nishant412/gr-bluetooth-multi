@@ -79,6 +79,7 @@ namespace gr {
 
       /* pull information out of FHS packet */
       void fhs(classic_packet::sptr pkt);
+	int decode_classic_bt(float *stream, int stream_length,int sps, double freq,double snr);
 
     public:
       multi_sniffer_impl(double sample_rate, double center_freq, double squelch_threshold, bool tun);

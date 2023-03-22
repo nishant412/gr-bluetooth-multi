@@ -128,7 +128,7 @@ namespace gr {
     }
 
     /* M&M clock recovery, adapted from gr_clock_recovery_mm_ff */
-#if 0
+#if 1
     int
     multi_block::mm_cr(const float *in, int ninput_items, float *out, int noutput_items)
     {
@@ -158,7 +158,7 @@ namespace gr {
       return oo;
     }
 #endif
-#if 1
+#if 0
 int multi_block::mm_cr(const float *in, int ninput_items, float *out, int noutput_items)
 {
 	unsigned int ii = 1; /* input index */
@@ -447,7 +447,8 @@ int multi_block::mm_cr(const float *in, int ninput_items, float *out, int noutpu
     void
     multi_block::set_symbol_history(int num_symbols)
     {
-      set_history((int) (history() + (num_symbols * d_samples_per_symbol)));
+      //set_history((int) (history() + (num_symbols * d_samples_per_symbol)));
+    	set_history((int) (num_symbols * d_samples_per_symbol));
     }
 
     /* set available channels based on d_center_freq and d_sample_rate */

@@ -81,103 +81,64 @@ namespace gr {
     {
     }
 
+
     int
     multi_sniffer_impl::work( int                        noutput_items,
                               gr_vector_const_void_star& input_items,
                               gr_vector_void_star&       output_items )
-    {
-      /*static int work_iter = 0;
-      work_iter++;
-      for (int i = 0; i < noutput_items; i++) {
-	gr_complex *sample = &((gr_complex*)input_items[0])[0];
-      	printf("WORKINGON %d %f %f\n", work_iter, sample[i].real(), sample[i].imag());
-      }*/
-      static unsigned int master_counter = 0;
-      //for (double freq = d_low_freq; freq <= d_high_freq; freq += 1e6) {
-	//printf("Enterthedragon");
-        double freq = d_center_freq;
-        float scale_factor = d_sample_rate/1000000.0;
-        double on_channel_energy, snr;
-	snr = 1.0;
-	/* //Modified decoder//
-        bool leok = brok = check_snr( freq, on_channel_energy, snr, input_items );
-	*/
-	bool brok;
-	bool leok = brok = true;
-        /* number of symbols available */
-        if (brok || leok) {
-          int sym_length = history();
-          char *symbols = new char[sym_length];
-		//printf("char is %2d bytes \n",sizeof(char));
-          /* pointer to our starting place for sniff_ */
-          char *symp = symbols;
-          /*gr_vector_const_void_star cbtch( 1 );
-          cbtch[0] = ch_samples;*/ //Modified decoder
-          //int len = channel_symbols( cbtch, symbols, ch_count );
-	  int len = channel_symbols( input_items,symbols,history() ); //Modified decoder
-	  //printf("Number of symbols:%d\n",len);
-          //delete [] ch_samples;
-
-          if (brok) {
-            // int limit = ((len - SYMBOLS_PER_BASIC_RATE_SHORTENED_ACCESS_CODE) < SYMBOLS_PER_BASIC_RATE_SLOT) ? (len - SYMBOLS_PER_BASIC_RATE_SHORTENED_ACCESS_CODE) : SYMBOLS_PER_BASIC_RATE_SLOT;
-		  int limit = len;
-       		//printf("Limit:%d\n",limit);
-            /* look for multiple packets in this slot */
-            while (limit > 0) {
-              /* index to start of packet */
-              int i = classic_packet::sniff_ac(symp, limit);
-              if (i >= 0) {
-                int step = i + SYMBOLS_PER_BASIC_RATE_SHORTENED_ACCESS_CODE;
-                ac(&symp[i], limit - i, freq, snr);
-                //len   -= step;
-				if(step >= sym_length) error_out("Bad step");
-                //symp   = &symp[step];
-                symp += step;
-		limit -= step;
-		printf("Limit=%d,Len=%d,i=%d\n",limit,len,i);
-              }
-              else {
-                break;
-              }
-            }
-          }
-
-          if (leok) {
-            symp = symbols;
-            int limit = ((len - SYMBOLS_PER_BASIC_RATE_SHORTENED_ACCESS_CODE) < SYMBOLS_PER_BASIC_RATE_SLOT) ?
-              (len - SYMBOLS_PER_BASIC_RATE_SHORTENED_ACCESS_CODE) : SYMBOLS_PER_BASIC_RATE_SLOT;
-	    //printf("limit=%d",limit);
-            int step_counter = 0;
-	    while (limit >= 0) {
-              int i = le_packet::sniff_aa(symp, limit, freq);
-	      //printf("i=%d\n",i);
-              if (i >= 0) {
-                int step = i + SYMBOLS_PER_LOW_ENERGY_PREAMBLE_AA;
-		unsigned packet_length = 0;
-		char *bd_filname;
-		float *bd_vals;
-		int packet_flag = 0;
-		//printf("symp[%i], len-i = %i\n", i, len-i);
-                //printf("#STARTPACKET:%d\n",i+step_counter);
-		aa(&symp[i], len - i, freq, snr,&packet_length,&bd_filname,&packet_flag,&bd_vals);
-		//printf("Filename=%s\n",bd_filname);
-#if 0
-#endif
-		//master_counter ++;
-                //printf("Start of packet:%d End of packet:%d\n",i,len-i);
-		len   -= step;
-				if(step >= sym_length) error_out("Bad step");
-                symp   = &symp[step];
-		step_counter += step;
-                limit -= step;
-              }
-              else {
-                break;
-              }
-            }
-          }
-          delete [] symbols;
-//	  delete [] ch_samples;
+    { 
+	    float scale_factor = d_sample_rate/1000000.0;
+	    double freq = d_center_freq;
+	    double snr = 1.0;
+	    bool leok = false; 
+	    bool brok = true;
+	    int len = noutput_items-1;
+	char *symbols = new char[len];
+	    /* number of symbols available */
+	    if (brok || leok) {
+		    int sym_length = history();
+		    float demod_out[noutput_items-1];  
+		    gr_complex *ch_samps = (gr_complex *) input_items[0];
+		    //printf("Start decoding\n");
+		    demod(ch_samps, demod_out, noutput_items-1);
+		    int sps = (int)d_samples_per_symbol;
+		if (brok){
+		    decode_classic_bt(demod_out,noutput_items-1,sps,freq,snr);
+		}
+			
+          	if (leok) {
+            		char *symp = symbols;
+            		int limit = ((len - SYMBOLS_PER_BASIC_RATE_SHORTENED_ACCESS_CODE) < SYMBOLS_PER_BASIC_RATE_SLOT) ? (len - SYMBOLS_PER_BASIC_RATE_SHORTENED_ACCESS_CODE) : SYMBOLS_PER_BASIC_RATE_SLOT;
+	    		//printf("limit=%d",limit);
+            		int step_counter = 0;
+	    		while (limit >= 0) {
+              			int i = le_packet::sniff_aa(symp, limit, freq);
+	      			//printf("i=%d\n",i);
+              			if (i >= 0) {
+                			int step = i + SYMBOLS_PER_LOW_ENERGY_PREAMBLE_AA;
+					unsigned packet_length = 0;
+					char *bd_filname;
+					float *bd_vals;
+					int packet_flag = 0;
+					//printf("symp[%i], len-i = %i\n", i, len-i);
+                			//printf("#STARTPACKET:%d\n",i+step_counter);
+					aa(&symp[i], len - i, freq, snr,&packet_length,&bd_filname,&packet_flag,&bd_vals);
+					//printf("Filename=%s\n",bd_filname);
+					//master_counter ++;
+                			//printf("Start of packet:%d End of packet:%d\n",i,len-i);
+					len   -= step;
+					if(step >= sym_length) error_out("Bad step");
+                			symp   = &symp[step];
+					step_counter += step;
+                			limit -= step;
+              			}
+              			else {
+                			break;
+              			}
+            		}
+          	}
+          	delete [] symbols;
+		//	  delete [] ch_samples;
         }
         else {
   //        delete [] ch_samples;
@@ -185,8 +146,8 @@ namespace gr {
       //}
       //printf("Cumulative count updated\n");
       d_cumulative_count += (int) d_samples_per_slot;
-
-      /*
+      
+      /* 
        * The runtime system wants to know how many output items we
        * produced, assuming that this is equal to the number of input
        * items consumed.  We tell it that we produced/consumed one
@@ -198,6 +159,48 @@ namespace gr {
       return (int) d_samples_per_slot;
     }
 
+
+int
+multi_sniffer_impl::decode_classic_bt(float *stream, int stream_length,int sps, double freq,double snr)
+    {
+      /* Looks for an AC in the stream */
+      int count,sfo;
+      int max_distance = 0; // maximum number of bit errors to tolerate in preamble + trailer
+	//printf("Hello Stream Length:%d\n",stream_length);
+      int num_symbols = (stream_length - stream_length%sps)/sps;
+      //printf("Stream length:%d\n",stream_length);
+      char symbol_vals[num_symbols];
+	bool packet_flag = false;
+      for(sfo = 0; sfo < sps; sfo++){
+      		//printf("Entering loop\n");
+	      for(count = 0; count<num_symbols;count++){
+		      //printf("Count:%d\n",sfo + count*sps);
+		      symbol_vals[count] = stream[sfo + count*sps]>0.0?1:0;
+	      }
+	      count = 0;
+	      while( count<num_symbols-SYMBOLS_PER_BASIC_RATE_SHORTENED_ACCESS_CODE ) {
+		      char * symbols = &symbol_vals[count];
+		      //// start of sync word (includes LSB of sync word)
+		      uint8_t preamble = classic_packet::air_to_host8( &symbols[0], 5 );
+		      // MSB of LAP and 6-bit barker in 7 symbols
+        	      uint16_t barker = classic_packet::air_to_host16( &symbols[61], 7 );
+        	      if ((classic_packet::PREAMBLE_DISTANCE[preamble] + classic_packet::BARKER_DISTANCE[barker]) <= max_distance) {
+          			uint32_t LAP = classic_packet::air_to_host32( &symbols[38], 24 );
+          			if (classic_packet::check_ac( symbols, LAP )) {
+            				packet_flag = true;
+          			}
+			      //packet_flag = true;
+        	      }
+		      if (packet_flag){
+		      		packet_flag = false;
+				ac(symbols, num_symbols-count, freq, snr);
+				count += SYMBOLS_PER_BASIC_RATE_SHORTENED_ACCESS_CODE;
+		      }
+		      count++;
+      	      }
+      }
+      return -1;
+    }
     /* handle AC */
     void
     multi_sniffer_impl::ac(char *symbols, int len, double freq, double snr)
